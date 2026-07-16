@@ -8,20 +8,20 @@ warnings.simplefilter('ignore', FutureWarning)
 import numpy as np
 import pandas as pd
 
-from funzioni import f_settaggio_db
-from funzioni import f_log_ciclo_for
-from funzioni import f_crea_cartella
-
-connessione = f_settaggio_db()
-
 lista_possibili_cartelle_lavoro = [
-    '/media/daniele/Daniele2TB/test/climatologia_OLD',
-    '/run/media/daniele.carnevale/Daniele2TB/test/climatologia_OLD',
+    '/media/daniele/Daniele2TB/repo/climatologia',
+    '/run/media/daniele.carnevale/Daniele2TB/repo/climatologia',
 ]
 
 cartella_lavoro = [x for x in lista_possibili_cartelle_lavoro if os.path.exists(x)][0]
 os.chdir(cartella_lavoro)
 del (lista_possibili_cartelle_lavoro)
+
+from funzioni import f_settaggio_db
+from funzioni import f_log_ciclo_for
+from funzioni import f_crea_cartella
+
+connessione = f_settaggio_db()
 
 # %%
 df_stazioni_meteo_clima = pd.read_csv(f'{cartella_lavoro}/df_stazioni_meteo-clima.csv')

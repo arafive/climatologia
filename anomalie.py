@@ -36,8 +36,8 @@ from pykrige.ok import OrdinaryKriging
 from pykrige.uk import UniversalKriging
 
 lista_possibili_cartelle_lavoro = [
-    '/media/daniele/Daniele2TB/test/climatologia_OLD',
-    '/run/media/daniele.carnevale/Daniele2TB/test/climatologia_OLD',
+    '/media/daniele/Daniele2TB/repo/climatologia',
+    '/run/media/daniele.carnevale/Daniele2TB/repo/climatologia',
 ]
 
 cartella_lavoro = [x for x in lista_possibili_cartelle_lavoro if os.path.exists(x)][0]
@@ -45,13 +45,13 @@ os.chdir(cartella_lavoro)
 del (lista_possibili_cartelle_lavoro)
 
 from matplotlib import font_manager
-font_files = font_manager.findSystemFonts(fontpaths='./../../NotesEsa_font')
+font_files = font_manager.findSystemFonts(fontpaths='./../../font/NotesEsa')
 for font_file in font_files:
     font_manager.fontManager.addfont(font_file)
 
 plt.rc('font', family='NotesEsa', weight='normal', size=6)
 
-regioni = Reader('./../shapefile/gadm41_ITA_shp/gadm41_ITA_1.shp')
+regioni = Reader('./../../shapefile/gadm41_ITA_shp/gadm41_ITA_1.shp')
 
 for r in regioni.records():
     if r.attributes['NAME_1'] == 'Liguria':
@@ -66,9 +66,9 @@ cartella_query_clima = f'{cartella_lavoro}/query_clima'
 cartella_query_meteo = f'{cartella_lavoro}/query_meteo'
 
 # %%
-dict_massimi_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2026)}
-dict_medie_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2026)}
-dict_minimi_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2026)}
+dict_massimi_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2027)}
+dict_medie_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2027)}
+dict_minimi_annuali = {x: pd.DataFrame(columns=df_stazioni_meteo_clima['Code']) for x in range(1991, 2027)}
 
 # if not os.path.exists(f'{cartella_lavoro}/dict_medie_annuali.pkl'):
 if os.path.exists(f'{cartella_lavoro}/dict_medie_annuali.pkl'):
@@ -106,7 +106,7 @@ else:
 
 # %% Plot stile Copernicus Report ESOTC 2024 (pag. 19)
 
-anno = 2025
+anno = 2026
 printa_giorni_max_min = False
 previsioni_di_ensemble, oggi = False, pd.to_datetime('2025-11-12') # (EXPERIMENTAL)
 
@@ -138,7 +138,7 @@ lista_clima = []
 lista_max_clima = []
 lista_min_clima = []
 
-# for a in range(1991, 2021):
+# for a in range(1991, 2022):
 for a in range(2003, 2022):
     df_tmp = dict_medie_annuali[a]
     df_tmp.index = [f"2020-{str(x).split('-', 1)[-1]}" for x in df_tmp.index]
@@ -178,6 +178,22 @@ df_anno = df_anno.reindex(pd.date_range('2020-01-01', '2020-12-31', freq='1d'))
 
 #############
 
+df_mean_clima = df_mean_clima.loc['2020-01-01':'2020-06-30']
+df_anno = df_anno.loc['2020-01-01':'2020-06-30']
+df_max_clima = df_max_clima.loc['2020-01-01':'2020-06-30']
+df_min_clima = df_min_clima.loc['2020-01-01':'2020-06-30']
+df_25perc_clima = df_25perc_clima.loc['2020-01-01':'2020-06-30']
+df_75perc_clima = df_75perc_clima.loc['2020-01-01':'2020-06-30']
+
+df_mean_clima = df_mean_clima.fillna(method='bfill')
+df_anno = df_anno.fillna(method='bfill')
+df_max_clima = df_max_clima.fillna(method='bfill')
+df_min_clima = df_min_clima.fillna(method='bfill')
+df_25perc_clima = df_25perc_clima.fillna(method='bfill')
+df_75perc_clima = df_75perc_clima.fillna(method='bfill')
+
+#############
+
 fig, ax = plt.subplots(figsize=(7, 4))
 
 y_max = df_max_clima.values.flatten()
@@ -197,19 +213,22 @@ dict_fill_between = {
 
 df_mean_clima.plot(ax=ax, color='white', ls='-', lw=1, zorder=5)
 
+oggi = pd.Timestamp.now().normalize() + pd.Timedelta(days=1)
+ax.axvline(f'2020-{oggi.month}-{oggi.day}', color="black", linestyle="--", linewidth=0.5)
+
 ax.fill_between(
     df_max_clima.index,
     df_min_clima.values,
     df_max_clima.values,
     color='lightgray',
-    alpha=0.15, edgecolor='none')
+    alpha=0.2, edgecolor='none')
 
 ax.fill_between(
     df_75perc_clima.index,
     df_25perc_clima.values,
     df_75perc_clima.values,
     color='gray',
-    alpha=0.15, edgecolor='none')
+    alpha=0.2, edgecolor='none')
 
 ax.fill_between(df_anno.index, y_anno, y_mean, where=(y_anno > y_mean), color=dict_cmap['Warmer\nthan average'], **dict_fill_between)
 ax.fill_between(df_anno.index, y_anno, y_75perc, where=(y_anno > y_75perc), color=dict_cmap['Much warmer\nthan average'], **dict_fill_between)
@@ -297,7 +316,7 @@ if previsioni_di_ensemble:
     df_ensemble_t2m = pd.read_csv(f"{cartella_lavoro}/df_ensemble_t2m_{oggi.strftime('%Y-%m-%d')}.csv", index_col=0, parse_dates=True)
     df_ensemble_t2m.index = pd.to_datetime([str(x).replace(str(anno), '2020') for x in df_ensemble_t2m.index])
     df_ensemble_t2m = df_ensemble_t2m.reindex(pd.date_range('2020-01-01', '2020-12-31', freq='1d')).dropna()
-
+    
     ieri_2020 = df_anno.dropna().index[-1]
     df_tmp = pd.DataFrame({
             'perc_25': df_anno.dropna().iloc[-1],
@@ -326,8 +345,9 @@ ticks = ax.get_xticks()[:-1]
 ax.set_xticks(ticks)
 ax.set_xticklabels(labels)
 
-ax.set_title(anno, fontsize=8)
-ax.text(1.0, 1.02, "Climatologia 2003-2022", transform=ax.transAxes, ha='right', va='bottom', fontsize=8)
+# ax.set_title(anno, fontsize=8)
+ax.set_title(f'Temperatura superficiale media giornaliera sulla Liguria - anno {anno}', loc='left', fontsize=8)
+ax.text(1.0, 1.02, "Climatologia: 2003-2022", transform=ax.transAxes, ha='right', va='bottom', fontsize=8)
 ax.set_ylim(0, 30)
 ax.set_yticks([0, 5, 10, 15, 20, 25, 30])
 ax.set_yticklabels([0, 5, 10, 15, 20, 25, '30°C'])
@@ -359,6 +379,7 @@ cbar.set_ticks([i + 0.5 for i in range(len(bounds)-1)])
 cbar.set_ticklabels(list(dict_cmap_traduzione.values()), fontsize=5.5)
 
 plt.savefig(f'./Copernicus_3_{anno}.png', dpi=300, format='png', bbox_inches='tight')
+# plt.savefig(f'./Copernicus_3_{anno}.svg', dpi=300, format='svg', bbox_inches='tight')
 plt.show()
 plt.close()
 
@@ -366,7 +387,6 @@ plt.close()
 # del (df_25perc_clima, df_75perc_clima, df_max_clima, df_mean_clima, df_min_clima, df_tmp, df_ensemble_t2m)
 # del (y_25perc, y_75perc, y_anno, y_massimi_medi, y_max, y_mean, y_min, y_minimi_medi, df_anno, date_minimi_medi, date_massimi_medi)
 # del (lista_clima, lista_max_clima, lista_min_clima, dict_fill_between, dict_cmap_traduzione, texts, data, temperatura)
-
 
 # %% Plot stile Copernicus "Annual temperature anomalies since 1979 (Europe)" (https://climate.copernicus.eu/graphics-gallery)
 df_medie_annuali = pd.Series(np.nan, index=dict_medie_annuali.keys())

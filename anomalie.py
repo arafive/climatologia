@@ -24,7 +24,7 @@ from matplotlib.colors import Normalize
 from matplotlib.colorbar import ColorbarBase
 from matplotlib.ticker import MultipleLocator
 from matplotlib.ticker import NullLocator
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle, Patch
 from shapely.geometry import Polygon, MultiPolygon
 
 from adjustText import adjust_text
@@ -178,12 +178,12 @@ df_anno = df_anno.reindex(pd.date_range('2020-01-01', '2020-12-31', freq='1d'))
 
 #############
 
-df_mean_clima = df_mean_clima.loc['2020-01-01':'2020-06-30']
-df_anno = df_anno.loc['2020-01-01':'2020-06-30']
-df_max_clima = df_max_clima.loc['2020-01-01':'2020-06-30']
-df_min_clima = df_min_clima.loc['2020-01-01':'2020-06-30']
-df_25perc_clima = df_25perc_clima.loc['2020-01-01':'2020-06-30']
-df_75perc_clima = df_75perc_clima.loc['2020-01-01':'2020-06-30']
+# df_mean_clima = df_mean_clima.loc['2020-01-01':'2020-06-30']
+# df_anno = df_anno.loc['2020-01-01':'2020-06-30']
+# df_max_clima = df_max_clima.loc['2020-01-01':'2020-06-30']
+# df_min_clima = df_min_clima.loc['2020-01-01':'2020-06-30']
+# df_25perc_clima = df_25perc_clima.loc['2020-01-01':'2020-06-30']
+# df_75perc_clima = df_75perc_clima.loc['2020-01-01':'2020-06-30']
 
 df_mean_clima = df_mean_clima.fillna(method='bfill')
 df_anno = df_anno.fillna(method='bfill')
@@ -346,7 +346,7 @@ ax.set_xticks(ticks)
 ax.set_xticklabels(labels)
 
 # ax.set_title(anno, fontsize=8)
-ax.set_title(f'Temperatura superficiale media giornaliera sulla Liguria - anno {anno}', loc='left', fontsize=8)
+ax.set_title(f'Temperatura media giornaliera sulla Liguria - anno {anno}', loc='left', fontsize=8)
 ax.text(1.0, 1.02, "Climatologia: 2003-2022", transform=ax.transAxes, ha='right', va='bottom', fontsize=8)
 ax.set_ylim(0, 30)
 ax.set_yticks([0, 5, 10, 15, 20, 25, 30])
@@ -395,7 +395,7 @@ for anno in dict_medie_annuali.keys():
     df_medie_annuali.loc[anno] = dict_medie_annuali[anno].mean(axis=1).mean()
 
 df_medie_annuali_ultima_data = pd.Series(np.nan, index=dict_medie_annuali.keys())
-ultima_data = dict_medie_annuali[2025].index[-1]
+ultima_data = dict_medie_annuali[2026].index[-1]
 
 for anno in dict_medie_annuali.keys():
     df_tmp = dict_medie_annuali[anno].mean(axis=1)
@@ -404,24 +404,29 @@ for anno in dict_medie_annuali.keys():
 
 ###############
 
-fig, ax = plt.subplots(figsize=(11, 4))
+anno_corrente = 2026  # oppure: max(dict_medie_annuali.keys())
+larghezza_barra = 0.38
+
+fig, ax = plt.subplots(figsize=(13, 4))
 
 inizio_gradiente, fine_gradiente = 4, 18
-
-### Barre di df_medie_annuali
-cmap = plt.get_cmap('Reds')
 norm = Normalize(vmin=inizio_gradiente, vmax=fine_gradiente)
 
-df_medie_annuali.plot(ax=ax, kind='bar',edgecolor='black', lw=0.2, zorder=3, width=0.7,
-    color='none',  # niente riempimento perché mettiamo il gradiente dopo
+x_pos = np.arange(len(df_medie_annuali_ultima_data.index))
+
+### Barre arancioni: media fino all'ultimo giorno disponibile, TUTTI gli anni (compreso quello corrente)
+cmap_arancio = plt.get_cmap('Oranges')
+
+barre_arancio = ax.bar(x_pos - larghezza_barra / 2, df_medie_annuali_ultima_data.values,
+    width=larghezza_barra, edgecolor='black', lw=0.2, zorder=3, color='none',
 )
 
-for rect, media_annuale in zip(ax.patches, df_medie_annuali.values):
+for rect, media_annuale in zip(barre_arancio, df_medie_annuali_ultima_data.values):
     x0, y0, w = rect.get_x(), rect.get_y(), rect.get_width()
 
     gradient = np.linspace(inizio_gradiente, fine_gradiente, 100).reshape(-1, 1)
     gradient = np.flipud(gradient)
-    gradient_colors = cmap(norm(gradient))
+    gradient_colors = cmap_arancio(norm(gradient))
 
     rel_height = (media_annuale - inizio_gradiente) / (fine_gradiente - inizio_gradiente)
     rel_height = np.clip(rel_height, 0, 1)
@@ -437,20 +442,23 @@ ax.grid(which='minor', axis='y', ls=':', lw=0.3, color='lightgray', zorder=1)
 ax.xaxis.set_minor_locator(NullLocator()) # serve a togliere i tick minor
 ax.yaxis.set_minor_locator(MultipleLocator(1 / 4))
 
-### Barre di df_medie_annuali_ultima_data
-cmap = plt.get_cmap('Oranges')
-norm = Normalize(vmin=inizio_gradiente, vmax=fine_gradiente)
+### Barre rosse: media sull'intero anno, tutti gli anni TRANNE quello corrente (incompleto)
+cmap_rosso = plt.get_cmap('Purples')
 
-df_medie_annuali_ultima_data.plot(ax=ax, kind='bar',edgecolor='black', lw=0.2, zorder=3, width=0.7,
-    color='none',  # niente riempimento perché mettiamo il gradiente dopo
+maschera_anni_completi = df_medie_annuali.index != anno_corrente
+x_pos_rosso = x_pos[maschera_anni_completi]
+valori_rosso = df_medie_annuali.values[maschera_anni_completi]
+
+barre_rosso = ax.bar(x_pos_rosso + larghezza_barra / 2, valori_rosso,
+    width=larghezza_barra, edgecolor='black', lw=0.2, zorder=3, color='none',
 )
 
-for rect, media_annuale in zip(ax.patches, df_medie_annuali_ultima_data.values):
+for rect, media_annuale in zip(barre_rosso, valori_rosso):
     x0, y0, w = rect.get_x(), rect.get_y(), rect.get_width()
 
     gradient = np.linspace(inizio_gradiente, fine_gradiente, 100).reshape(-1, 1)
     gradient = np.flipud(gradient)
-    gradient_colors = cmap(norm(gradient))
+    gradient_colors = cmap_rosso(norm(gradient))
 
     rel_height = (media_annuale - inizio_gradiente) / (fine_gradiente - inizio_gradiente)
     rel_height = np.clip(rel_height, 0, 1)
@@ -459,8 +467,16 @@ for rect, media_annuale in zip(ax.patches, df_medie_annuali_ultima_data.values):
 
     extent = [x0, x0 + w, y0 + inizio_gradiente, y0 + media_annuale]
     ax.imshow(gradient_cut, aspect='auto', extent=extent, origin='upper', zorder=2)
-    
+
 ax.grid(which='major', axis='y', lw=0.4, ls='-', zorder=1)
+
+### Riserva lo spazio per la barra rossa mancante nell'ultimo anno (2026)
+ax.set_xlim(x_pos[0] - larghezza_barra * 1.3, x_pos[-1] + larghezza_barra * 1.3)
+
+### Legenda
+legenda_arancio = Patch(facecolor=cmap_arancio(0.75), edgecolor='black', linewidth=0.3, label='Media fino ad oggi')
+legenda_rosso = Patch(facecolor=cmap_rosso(0.75), edgecolor='black', linewidth=0.3, label='Media annuale')
+ax.legend(handles=[legenda_arancio, legenda_rosso], loc='upper left', fontsize=8, frameon=False)
 
 '''
 ### Trend
@@ -474,9 +490,10 @@ ax.plot(np.arange(len(df_medie_annuali_ultima_data)), trend, label='Trend', colo
 '''
 
 ax.set_title('Temperatura media annuale in Liguria', fontsize=9)
-ax.set_ylim(inizio_gradiente + 4, fine_gradiente - 2)
-ax.set_yticks([8, 9, 10, 11, 12, 13, 14, 15, 16]) # é un po' artigianale perché potrei cambiare inizio e fine gradiente e dover modificare qui a mano
-ax.set_yticklabels([8, 9, 10, 11, 12, 13, 14, 15, '16°C'])
+ax.set_ylim(inizio_gradiente + 6, fine_gradiente - 2)
+ax.set_yticks([10, 11, 12, 13, 14, 15, 16]) # é un po' artigianale perché potrei cambiare inizio e fine gradiente e dover modificare qui a mano
+ax.set_yticklabels([10, 11, 12, 13, 14, 15, '16°C'])
+ax.set_xticks(x_pos)
 ax.set_xticklabels(labels=df_medie_annuali.index, rotation=45, ha='center', fontsize=5)
 
 plt.savefig('./Copernicus_2.png', dpi=300, format='png', bbox_inches='tight')
@@ -485,9 +502,11 @@ plt.show()
 plt.close()
 
 del (df_medie_annuali, anno, df_medie_annuali_ultima_data, ultima_data, df_tmp, fig, ax)
-del (inizio_gradiente, fine_gradiente, cmap, norm, rect, media_annuale, x0, y0, w, gradient, gradient_colors)
+del (inizio_gradiente, fine_gradiente, cmap_arancio, cmap_rosso, norm, rect, media_annuale, x0, y0, w, gradient, gradient_colors)
 del (rel_height, rows_to_keep, gradient_cut, extent)
+del (anno_corrente, larghezza_barra, x_pos, x_pos_rosso, valori_rosso, maschera_anni_completi, barre_arancio, barre_rosso)
 # del (pendenza, intercetta, trend)
+sss
 
 # %% Interpolazione e plot geografici di anomalie di temperatura media
 
@@ -500,7 +519,7 @@ cmap = ListedColormap([
     '#ef3b2c', '#cb181d', '#a50f15', '#67000d',
 ])
 
-anno = 2025
+anno = 2026
 
 df = pd.DataFrame(np.nan, index=df_stazioni_meteo_clima['Code'], columns=['clima', f'{anno}', 'anomalia'])
 
